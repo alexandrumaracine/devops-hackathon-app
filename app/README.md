@@ -75,3 +75,9 @@ uvicorn app.main:app --reload
 ```
 
 ---
+
+## API Endpoint
+
+- **GET /weather?city=CityName**
+
+Returns JSON with temperature, description, and icon code.
