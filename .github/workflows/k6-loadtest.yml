@@ -19,9 +19,9 @@ jobs:
 
     - name: Run K6 load test
       run: |
-        docker run --network host 
-          -v $\{{ github.workspace }}/k6:/scripts 
-          grafana/k6 run /scripts/weather-test.js 
+        docker run --network host \
+          -v ${{ github.workspace }}/k6:/scripts \
+          grafana/k6 run /scripts/weather-test.js \
           --out json=/scripts/results.json
 
     - name: Upload K6 results
