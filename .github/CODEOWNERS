@@ -1,0 +1,12 @@
+# Default owner
+*                                   @emiluuupulls
+
+# Workflows
+/.github/                  @emiluuupulls @alexandrumaracine @IDC26
+
+# Prod environment must be approved by at least 2 people:
+/app/                @emiluuupulls @alexandrumaracine @IDC26
+/docker-compose.yaml           @emiluuupulls @alexandrumaracine @IDC26
+
+# Docs – anyone can own/update
+/README.md                           @emiluuupulls @alexandrumaracine @IDC26
