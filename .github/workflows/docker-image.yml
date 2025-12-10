@@ -1,0 +1,100 @@
+name: Frontend + Backend ECS CI/CD
+
+on:
+  push:
+    branches: ["main"]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+
+  deploy-frontend:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    # Runs only if FE folder changed
+    if: |
+      contains(join(github.event.commits.*.modified, ','), 'frontend/') ||
+      contains(join(github.event.commits.*.added, ','), 'frontend/') ||
+      contains(join(github.event.commits.*.removed, ','), 'frontend/')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-central-1
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build frontend image
+        run: |
+          docker build -t frontend:latest ./frontend
+          docker tag frontend:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/frontend:latest
+
+      - name: Push FE image
+        run: docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/frontend:latest
+
+      - name: Render frontend task definition
+        id: taskdef
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: frontend-task-definition.json
+          container-name: frontend
+          image: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/frontend:latest
+
+      - name: Deploy Frontend to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.taskdef.outputs.task-definition }}
+          service: frontend-service
+          cluster: app-cluster
+
+
+  deploy-backend:
+    name: Deploy Backend
+    runs-on: ubuntu-latest
+    # Runs only if BE folder changed
+    if: |
+      contains(join(github.event.commits.*.modified, ','), 'backend/') ||
+      contains(join(github.event.commits.*.added, ','), 'backend/') ||
+      contains(join(github.event.commits.*.removed, ','), 'backend/')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-central-1
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build backend image
+        run: |
+          docker build -t backend:latest ./backend
+          docker tag backend:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/backend:latest
+
+      - name: Push BE image
+        run: docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/backend:latest
+
+      - name: Render backend task definition
+        id: taskdef
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: backend-task-definition.json
+          container-name: backend
+          image: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/backend:latest
+
+      - name: Deploy Backend to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.taskdef.outputs.task-definition }}
+          service: backend-service
+          cluster: app-cluster
