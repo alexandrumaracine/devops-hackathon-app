@@ -1,4 +1,4 @@
-﻿name: K6 Load Test
+﻿name: K6 Cloud Load Test
 
 on:
   workflow_dispatch:
@@ -11,15 +11,27 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
+    # Optional: Start services locally if needed
     - name: Start application services
       run: |
         docker compose up -d --build
         echo "Waiting for backend..."
         sleep 15
 
-    - name: Run K6 load test
+    # Run test on K6 Cloud
+    - name: Run K6 in Grafana Cloud
+      env:
+        K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
       run: |
-        docker run --network host \
+        docker run --rm \
+          -e K6_CLOUD_TOKEN=$K6_CLOUD_TOKEN \
+          -v ${{ github.workspace }}/k6:/scripts \
+          grafana/k6 cloud /scripts/weather-test.js
+
+    # Also save a local JSON output for reference
+    - name: Run K6 local JSON for artifact
+      run: |
+        docker run --rm \
           -v ${{ github.workspace }}/k6:/scripts \
           grafana/k6 run /scripts/weather-test.js \
           --out json=/scripts/results.json
