@@ -39,6 +39,14 @@ jobs:
           --region eu-central-1 \
           --query 'taskDefinition' \
           > team2-weather-app-frontend.json
+      - name: Debug rendered task definition
+        run: |
+          echo "Rendered task definition:"
+          cat ${{ steps.render-frontend.outputs.task-definition }}
+          echo
+          echo "Extracted image value:"
+          jq '.containerDefinitions[].image' ${{ steps.render-frontend.outputs.task-definition }} || true
+
 
       - name: Render frontend task definition
         id: taskdef
