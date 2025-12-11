@@ -31,6 +31,14 @@ jobs:
 
       # - name: Login to ECS
       #   uses: aws-actions/amazon-ecs-login@v2
+      
+      - name: Download current frontend task definition
+        run: |
+          aws ecs describe-task-definition \
+          --task-definition team2-weather-app-frontend \
+          --region eu-central-1 \
+          --query 'taskDefinition' \
+          > frontend-taskdef.json
 
       - name: Render frontend task definition
         id: taskdef
@@ -71,6 +79,14 @@ jobs:
 
       # - name: Login to ECS
       #   uses: aws-actions/amazon-ecs-login@v2
+
+      - name: Download current backend task definition
+        run: |
+          aws ecs describe-task-definition \
+          --task-definition team2-weather-app-backend \
+          --region eu-central-1 \
+          --query 'taskDefinition' \
+          > backend-taskdef.json
 
       - name: Render backend task definition
         id: taskdef
