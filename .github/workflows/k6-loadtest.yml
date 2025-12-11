@@ -11,12 +11,9 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    # No local Docker services needed — testing live endpoint
     - name: Confirm target URL
-      run: |
-        echo "Testing live app at https://heythere.endavahub.net/"
-    
-    # Run test on K6 Cloud
+      run: echo "Testing live app at https://heythere.endavahub.net/"
+
     - name: Run K6 in Grafana Cloud
       env:
         K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
@@ -26,7 +23,6 @@ jobs:
           -v ${{ github.workspace }}/k6:/scripts \
           grafana/k6 cloud /scripts/weather-test.js
 
-    # Also save a local JSON output for reference
     - name: Run K6 local JSON for artifact
       run: |
         docker run --rm \
@@ -37,6 +33,5 @@ jobs:
     - name: Upload K6 results
       uses: actions/upload-artifact@v4
       with:
-      name: k6-results
-      path: k6/results.json
-      if-no-files-found: warn
+        name: k6-results
+        path: k6/results.json
