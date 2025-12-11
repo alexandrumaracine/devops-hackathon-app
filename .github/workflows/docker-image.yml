@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     # Runs only if FE folder changed
     if: |
+      github.event_name == 'workflow_dispatch' ||
       contains(join(github.event.commits.*.modified, ','), 'frontend/') ||
       contains(join(github.event.commits.*.added, ','), 'frontend/') ||
       contains(join(github.event.commits.*.removed, ','), 'frontend/')
@@ -63,6 +64,7 @@ jobs:
     runs-on: ubuntu-latest
     # Runs only if BE folder changed
     if: |
+      github.event_name == 'workflow_dispatch' ||
       contains(join(github.event.commits.*.modified, ','), 'backend/') ||
       contains(join(github.event.commits.*.added, ','), 'backend/') ||
       contains(join(github.event.commits.*.removed, ','), 'backend/')
