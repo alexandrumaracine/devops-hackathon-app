@@ -26,6 +26,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Debug OIDC token
+        run: |
+            echo "Event name: ${{ github.event_name }}"
+            echo "Audience: sts.amazonaws.com"
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
