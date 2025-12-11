@@ -40,7 +40,7 @@ jobs:
 
       - name: Build frontend image
         run: |
-          docker build -t frontend:latest ./frontend
+          docker build -t frontend:latest ./app/frontend
           docker tag frontend:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/frontend:latest
 
       - name: Push FE image
@@ -89,7 +89,7 @@ jobs:
 
       - name: Build backend image
         run: |
-          docker build -t backend:latest ./backend
+          docker build -t backend:latest ./app/backend
           docker tag backend:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/backend:latest
 
       - name: Push BE image
