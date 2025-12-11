@@ -7,7 +7,7 @@ export let options = {
   // },
   stages: [
     { duration: '2s', target: 2 },   // warm-up
-    { duration: '200s', target: 100 },  // small load
+    { duration: '200s', target: 200 },  // small load
     { duration: '3s', target: 2 },   // cool down
   ],
   insecureSkipTLSVerify: true, // remove if using valid SSL
