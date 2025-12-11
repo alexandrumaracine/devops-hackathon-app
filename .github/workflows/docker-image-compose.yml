@@ -36,7 +36,7 @@ jobs:
         id: taskdef
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
-          task-definition: frontend-task-definition.json
+          task-definition: team2-weather-app-frontend.json
           container-name: frontend
           image: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/team2-weather-app-frontend:latest
 
@@ -76,7 +76,7 @@ jobs:
         id: taskdef
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
-          task-definition: backend-task-definition.json
+          task-definition: team2-weather-app-backend.json
           container-name: backend
           image: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/team2-weather-app-backend:latest
 
