@@ -29,8 +29,8 @@ jobs:
           aws-session-token:     ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: eu-central-1
 
-      - name: Login to ECS
-        uses: aws-actions/amazon-ecs-login@v2
+      # - name: Login to ECS
+      #   uses: aws-actions/amazon-ecs-login@v2
 
       - name: Render frontend task definition
         id: taskdef
@@ -69,8 +69,8 @@ jobs:
           aws-session-token:     ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: eu-central-1
 
-      - name: Login to ECS
-        uses: aws-actions/amazon-ecs-login@v2
+      # - name: Login to ECS
+      #   uses: aws-actions/amazon-ecs-login@v2
 
       - name: Render backend task definition
         id: taskdef
