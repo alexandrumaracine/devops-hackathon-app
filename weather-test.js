@@ -6,9 +6,9 @@ export let options = {
   //   region: "eu-west",   // Frankfurt
   // },
   stages: [
-    { duration: '2s', target: 2 },   // warm-up
-    { duration: '200s', target: 200 },  // small load
-    { duration: '3s', target: 2 },   // cool down
+    { duration: '2s', target: 100 },   // warm-up
+    { duration: '200s', target: 100 },  // small load
+    { duration: '3s', target: 100 },   // cool down
   ],
   insecureSkipTLSVerify: true, // remove if using valid SSL
 };
