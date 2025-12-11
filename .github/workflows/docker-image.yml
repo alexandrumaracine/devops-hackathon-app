@@ -26,15 +26,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Debug OIDC token
-        run: |
-            echo "Event name: ${{ github.event_name }}"
-            echo "Audience: sts.amazonaws.com"
-
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          # role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token:     ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: eu-central-1
 
       - name: Login to ECR
@@ -42,11 +40,11 @@ jobs:
 
       - name: Build frontend image
         run: |
-          docker build -t frontend:latest ./frontend
-          docker tag frontend:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/frontend:latest
+          docker build -t frontend:latest ./app/frontend
+          docker tag frontend:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/team2-weather-app-frontend:latest
 
       - name: Push FE image
-        run: docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/frontend:latest
+        run: docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/team2-weather-app-frontend:latest
 
       # - name: Render frontend task definition
       #   id: taskdef
@@ -80,7 +78,10 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          # role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token:     ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: eu-central-1
 
       - name: Login to ECR
@@ -88,11 +89,11 @@ jobs:
 
       - name: Build backend image
         run: |
-          docker build -t backend:latest ./backend
-          docker tag backend:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/backend:latest
+          docker build -t backend:latest ./app/backend
+          docker tag backend:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/team2-weather-app-backend:latest
 
       - name: Push BE image
-        run: docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/backend:latest
+        run: docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/team2-weather-app-backend:latest
 
       # - name: Render backend task definition
       #   id: taskdef
