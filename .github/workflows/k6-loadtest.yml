@@ -21,7 +21,7 @@ jobs:
         docker run --rm \
           -e K6_CLOUD_TOKEN=$K6_CLOUD_TOKEN \
           -v ${{ github.workspace }}:/scripts \
-           grafana/k6 cloud /scripts/weather-test.js  --cloud-region eu-west
+           grafana/k6 cloud /scripts/weather-test.js
 
     # - name: Run K6 local JSON for artifact
     #   run: |
