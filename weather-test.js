@@ -2,9 +2,9 @@ import http from 'k6/http';
 import { sleep, check } from 'k6';
 
 export let options = {
-  cloud: {
-    region: "eu-west",   // Frankfurt
-  },
+  // cloud: {
+  //   region: "eu-west",   // Frankfurt
+  // },
   stages: [
     { duration: '2s', target: 2 },   // warm-up
     { duration: '5s', target: 10 },  // small load
