@@ -23,15 +23,15 @@ jobs:
           -v ${{ github.workspace }}:/scripts \
            grafana/k6 cloud /scripts/weather-test.js
 
-    - name: Run K6 local JSON for artifact
-      run: |
-        docker run --rm \
-          -v ${{ github.workspace }}:/scripts \
-           grafana/k6 cloud /scripts/weather-test.js
-          --out json=/scripts/results.json
+    # - name: Run K6 local JSON for artifact
+    #   run: |
+    #     docker run --rm \
+    #       -v ${{ github.workspace }}:/scripts \
+    #        grafana/k6 cloud /scripts/weather-test.js
+    #       --out json=/scripts/results.json
 
-    - name: Upload K6 results
-      uses: actions/upload-artifact@v4
-      with:
-        name: k6-results
-        path: k6/results.json
+    # - name: Upload K6 results
+    #   uses: actions/upload-artifact@v4
+    #   with:
+    #     name: k6-results
+    #     path: k6/results.json
