@@ -46,20 +46,29 @@ jobs:
       - name: Push FE image
         run: docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/team2-weather-app-frontend:latest
 
-      # - name: Render frontend task definition
-      #   id: taskdef
-      #   uses: aws-actions/amazon-ecs-render-task-definition@v1
-      #   with:
-      #     task-definition: frontend-task-definition.json
-      #     container-name: frontend
-      #     image: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/frontend:latest
+      - name: Download current frontend task definition
+        run: |
+          aws ecs describe-task-definition \
+          --task-definition team2-weather-app-frontend \
+          --region eu-central-1 \
+          --query 'taskDefinition' \
+          > team2-weather-app-frontend.json
 
-      # - name: Deploy Frontend to ECS
-      #   uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-      #   with:
-      #     task-definition: ${{ steps.taskdef.outputs.task-definition }}
-      #     service: frontend-service
-      #     cluster: app-cluster
+      - name: Render frontend task definition
+        id: taskdef
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: team2-weather-app-frontend.json
+          container-name: frontend
+          image: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/team2-weather-app-frontend:latest
+
+      - name: Deploy Frontend Task Definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.taskdef.outputs.task-definition }}
+          service: ${{ vars.AWS_ECR_FRONTEND_SERVICE}}
+          cluster: ${{ vars.AWS_ECR_CLUSTER}}
+          force-new-deployment: true
 
 
   deploy-backend:
@@ -95,17 +104,26 @@ jobs:
       - name: Push BE image
         run: docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/team2-weather-app-backend:latest
 
-      # - name: Render backend task definition
-      #   id: taskdef
-      #   uses: aws-actions/amazon-ecs-render-task-definition@v1
-      #   with:
-      #     task-definition: backend-task-definition.json
-      #     container-name: backend
-      #     image: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/backend:latest
+      - name: Download current backend task definition
+        run: |
+          aws ecs describe-task-definition \
+          --task-definition team2-weather-app-backend \
+          --region eu-central-1 \
+          --query 'taskDefinition' \
+          > team2-weather-app-backend.json
+          
+      - name: Render backend task definition
+        id: taskdef
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: team2-weather-app-backend.json
+          container-name: backend
+          image: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/team2-weather-app-backend:latest
 
-      # - name: Deploy Backend to ECS
-      #   uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-      #   with:
-      #     task-definition: ${{ steps.taskdef.outputs.task-definition }}
-      #     service: backend-service
-      #     cluster: app-cluster
+      - name: Deploy Backend Task Definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.taskdef.outputs.task-definition }}
+          service: ${{ vars.AWS_ECR_BACKEND_SERVICE }}
+          cluster: ${{ vars.AWS_ECR_CLUSTER }}
+          force-new-deployment: true
