@@ -11,13 +11,11 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    # Optional: Start services locally if needed
-    - name: Start application services
+    # No local Docker services needed — testing live endpoint
+    - name: Confirm target URL
       run: |
-        docker compose up -d --build
-        echo "Waiting for backend..."
-        sleep 15
-
+        echo "Testing live app at https://heythere.endavahub.net/"
+    
     # Run test on K6 Cloud
     - name: Run K6 in Grafana Cloud
       env:

@@ -3,21 +3,26 @@ import { sleep, check } from 'k6';
 
 export let options = {
   stages: [
-    { duration: '10s', target: 50 },   // warm-up
-    { duration: '20s', target: 200 },  // medium load
-    { duration: '20s', target: 500 },  // high load
-    { duration: '10s', target: 0 },    // cool down
+    { duration: '2s', target: 2 },   // warm-up
+    { duration: '5s', target: 10 },  // small load
+    { duration: '3s', target: 2 },   // cool down
   ],
+  insecureSkipTLSVerify: true, // remove if using valid SSL
 };
 
+// 5 capital cities
+const cities = ["Berlin", "London", "Paris", "Rome", "Madrid"];
+
 export default function () {
-  const url = 'http://host.docker.internal:3000/weather?city=London';
+  const city = cities[Math.floor(Math.random() * cities.length)];
+
+  const url = `https://heythere.endavahub.net/api/weather?city=${city}`;
 
   let res = http.get(url);
 
   check(res, {
-    'status is 200': (r) => r.status === 200,
-    'response time < 500ms': (r) => r.timings.duration < 500
+    "status is 200": (r) => r.status === 200,
+    "response time < 500ms": (r) => r.timings.duration < 500,
   });
 
   sleep(1);
