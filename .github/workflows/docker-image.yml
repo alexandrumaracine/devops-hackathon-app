@@ -1,10 +1,10 @@
 name: Frontend + Backend ECS CI/CD
 
-#on:
-  #push:
-    #branches: ["main"]
-
 on:
+  # Uncomment this if you want automatic deploys on main
+  # push:
+  #   branches: ["main"]
+
   workflow_dispatch:
 
 permissions:
@@ -16,7 +16,7 @@ jobs:
   deploy-frontend:
     name: Deploy Frontend
     runs-on: ubuntu-latest
-    # Runs only if FE folder changed
+    # Runs only if FE folder changed (for push events) or always for manual dispatch
     if: |
       github.event_name == 'workflow_dispatch' ||
       contains(join(github.event.commits.*.modified, ','), 'frontend/') ||
@@ -37,6 +37,15 @@ jobs:
 
       - name: Login to ECR
         uses: aws-actions/amazon-ecr-login@v2
+
+      # NEW: recreate frontend .env from GitHub Secrets (not stored in git)
+      - name: Create frontend .env from secrets
+        run: |
+          {
+            echo "REACT_APP_OPENWEATHER_API_KEY=${{ secrets.FRONTEND_REACT_APP_OPENWEATHER_API_KEY }}"
+            echo "OPENWEATHERMAP_API_KEY=${{ secrets.FRONTEND_OPENWEATHERMAP_API_KEY }}"
+            echo "REACT_APP_API_BASE_URL=${{ secrets.FRONTEND_API_BASE_URL }}"
+          } > app/frontend/.env
 
       - name: Build frontend image
         run: |
@@ -66,15 +75,15 @@ jobs:
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
           task-definition: ${{ steps.taskdef.outputs.task-definition }}
-          service: ${{ vars.AWS_ECR_FRONTEND_SERVICE}}
-          cluster: ${{ vars.AWS_ECR_CLUSTER}}
+          service: ${{ vars.AWS_ECR_FRONTEND_SERVICE }}
+          cluster: ${{ vars.AWS_ECR_CLUSTER }}
           force-new-deployment: true
 
 
   deploy-backend:
     name: Deploy Backend
     runs-on: ubuntu-latest
-    # Runs only if BE folder changed
+    # Runs only if BE folder changed (for push events) or always for manual dispatch
     if: |
       github.event_name == 'workflow_dispatch' ||
       contains(join(github.event.commits.*.modified, ','), 'backend/') ||
@@ -83,6 +92,16 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - name: Create backend .env from secrets
+        run: |
+          {
+          echo "MYSQL_ROOT_PASSWORD=${{ secrets.BACKEND_MYSQL_ROOT_PASSWORD }}"
+          echo "MYSQL_DATABASE=${{ secrets.BACKEND_MYSQL_DATABASE }}"
+          echo "MYSQL_USER=${{ secrets.BACKEND_MYSQL_USER }}"
+          echo "MYSQL_PASSWORD=${{ secrets.BACKEND_MYSQL_PASSWORD }}"
+          echo "OPENWEATHER_API_KEY=${{ secrets.BACKEND_OPENWEATHER_API_KEY }}"
+          echo "OPENWEATHERMAP_API_KEY=${{ secrets.BACKEND_OPENWEATHERMAP_API_KEY }}"
+          } > app/backend/.env
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -95,6 +114,8 @@ jobs:
 
       - name: Login to ECR
         uses: aws-actions/amazon-ecr-login@v2
+
+      # NOTE: no backend .env here – ECS injects DB + weather secrets from SSM
 
       - name: Build backend image
         run: |
