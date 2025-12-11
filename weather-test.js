@@ -2,18 +2,14 @@ import http from 'k6/http';
 import { sleep, check } from 'k6';
 
 export let options = {
-  // cloud: {
-  //   region: "eu-west",   // Frankfurt
-  // },
   stages: [
     { duration: '2s', target: 100 },   // warm-up
     { duration: '15m', target: 100 },  // small load
     { duration: '3s', target: 100 },   // cool down
   ],
-  insecureSkipTLSVerify: true, // remove if using valid SSL
+  insecureSkipTLSVerify: true,
 };
 
-// 5 capital cities
 const cities = ["Berlin", "London", "Paris", "Rome", "Madrid"];
 
 export default function () {
