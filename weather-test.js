@@ -19,7 +19,7 @@ const cities = ["Berlin", "London", "Paris", "Rome", "Madrid"];
 export default function () {
   const city = cities[Math.floor(Math.random() * cities.length)];
 
-  const url = `https://heythere.endavahub.net/api/weather?city=${city}`;
+  const url = `https://heythere.endavahub.net`;
 
   let res = http.get(url);
 
