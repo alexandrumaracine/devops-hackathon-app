@@ -42,20 +42,20 @@ jobs:
       - name: Push FE image
         run: docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/frontend:latest
 
-      - name: Render frontend task definition
-        id: taskdef
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: frontend-task-definition.json
-          container-name: frontend
-          image: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/frontend:latest
+      # - name: Render frontend task definition
+      #   id: taskdef
+      #   uses: aws-actions/amazon-ecs-render-task-definition@v1
+      #   with:
+      #     task-definition: frontend-task-definition.json
+      #     container-name: frontend
+      #     image: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/frontend:latest
 
-      - name: Deploy Frontend to ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.taskdef.outputs.task-definition }}
-          service: frontend-service
-          cluster: app-cluster
+      # - name: Deploy Frontend to ECS
+      #   uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+      #   with:
+      #     task-definition: ${{ steps.taskdef.outputs.task-definition }}
+      #     service: frontend-service
+      #     cluster: app-cluster
 
 
   deploy-backend:
@@ -87,17 +87,17 @@ jobs:
       - name: Push BE image
         run: docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/backend:latest
 
-      - name: Render backend task definition
-        id: taskdef
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: backend-task-definition.json
-          container-name: backend
-          image: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/backend:latest
+      # - name: Render backend task definition
+      #   id: taskdef
+      #   uses: aws-actions/amazon-ecs-render-task-definition@v1
+      #   with:
+      #     task-definition: backend-task-definition.json
+      #     container-name: backend
+      #     image: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/backend:latest
 
-      - name: Deploy Backend to ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.taskdef.outputs.task-definition }}
-          service: backend-service
-          cluster: app-cluster
+      # - name: Deploy Backend to ECS
+      #   uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+      #   with:
+      #     task-definition: ${{ steps.taskdef.outputs.task-definition }}
+      #     service: backend-service
+      #     cluster: app-cluster
