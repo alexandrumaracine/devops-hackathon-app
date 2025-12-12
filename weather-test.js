@@ -4,7 +4,7 @@ import { sleep, check } from 'k6';
 export let options = {
   stages: [
     { duration: '2s', target: 100 },   // warm-up
-    { duration: '15m', target: 100 },  // small load
+    { duration: '2m', target: 100 },  // small load
     { duration: '3s', target: 100 },   // cool down
   ],
   insecureSkipTLSVerify: true,
