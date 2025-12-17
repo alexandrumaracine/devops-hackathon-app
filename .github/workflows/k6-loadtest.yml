@@ -2,36 +2,41 @@
 
 on:
   workflow_dispatch:
+    inputs:
+      test_duration:
+        description: "How long the load test should run"
+        required: true
+        type: choice
+        options:
+          - 30s
+          - 2m
+
+      vus:
+        description: "Number of virtual users"
+        required: true
+        default: "50"
+
+      target_url:
+        description: "Target base URL"
+        required: true
+        default: "https://jsonplaceholder.typicode.com/posts"
 
 jobs:
   loadtest:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Confirm target URL
-      run: echo "Testing live app at https://heythere.endavahub.net/"
-
-    - name: Run K6 in Grafana Cloud
-      env:
-        K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
-      run: |
-        docker run --rm \
-          -e K6_CLOUD_TOKEN=$K6_CLOUD_TOKEN \
-          -v ${{ github.workspace }}:/scripts \
-           grafana/k6 cloud /scripts/weather-test.js
-
-    # - name: Run K6 local JSON for artifact
-    #   run: |
-    #     docker run --rm \
-    #       -v ${{ github.workspace }}:/scripts \
-    #        grafana/k6 cloud /scripts/weather-test.js
-    #       --out json=/scripts/results.json
-
-    # - name: Upload K6 results
-    #   uses: actions/upload-artifact@v4
-    #   with:
-    #     name: k6-results
-    #     path: k6/results.json
+      - name: Run K6 in Grafana Cloud
+        env:
+          K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
+        run: |
+          docker run --rm \
+            -e K6_CLOUD_TOKEN=$K6_CLOUD_TOKEN \
+            -e TEST_DURATION=${{ github.event.inputs.test_duration }} \
+            -e VUS=${{ github.event.inputs.vus }} \
+            -e TARGET_URL=${{ github.event.inputs.target_url }} \
+            -v ${{ github.workspace }}:/scripts \
+            grafana/k6 cloud /scripts/dummy-test.js
