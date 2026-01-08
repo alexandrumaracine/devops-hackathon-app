@@ -24,13 +24,16 @@ API_KEY = (os.getenv("OPENWEATHER_API_KEY") or "").strip()
 @app.on_event("startup")
 def on_startup():
     print("=== APP STARTUP ===")
-    print("Initializing DB...")
 
+    if os.getenv("DISABLE_DB", "false").lower() == "true":
+        print("DB disabled via DISABLE_DB=true")
+        return
+
+    print("Initializing DB...")
     try:
         init_db()
         print("DB initialized OK")
     except Exception as e:
-        # Don’t crash app, but log clearly
         import traceback
         print("DB init failed (will continue without DB):", e)
         traceback.print_exc()
@@ -157,4 +160,4 @@ def history(limit: int = 10):
 
 
 # Mount all API routes under /api
-app.include_router(api, prefix="/api")
+app.include_router(api)
