@@ -14,10 +14,22 @@ MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "weatherpass")
 
 DATABASE_URL = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}/{MYSQL_DB}"
 
-engine = create_engine(DATABASE_URL, echo=False, future=True)
+# 🔐 Azure MySQL requires SSL
+engine = create_engine(
+    DATABASE_URL,
+    echo=False,
+    pool_pre_ping=True,
+    connect_args={
+        "ssl": {
+            "ca": "/etc/ssl/certs/ca-certificates.crt"
+        }
+    }
+)
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
+
 
 class SearchHistory(Base):
     __tablename__ = "search_history"
@@ -28,9 +40,7 @@ class SearchHistory(Base):
 
 
 def init_db():
-    # print(f"Running init_db() against: {DATABASE_URL}")
     Base.metadata.create_all(bind=engine)
-
 
 
 def save_search(city: str):
@@ -48,10 +58,9 @@ def save_search(city: str):
     except SQLAlchemyError as e:
         # Log and ignore DB problems – weather endpoint must still work
         print("save_search DB error, skipping:", e)
-        db.rollback()    
+        db.rollback()
     finally:
         db.close()
-
 
 
 def get_recent_searches(limit: int = 10):
@@ -65,3 +74,6 @@ def get_recent_searches(limit: int = 10):
         )
     finally:
         db.close()
+
+# Ensure DB tables exist at startup
+init_db()

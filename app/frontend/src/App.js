@@ -10,7 +10,9 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
-const API_BASE = process.env.REACT_APP_API_BASE_URL || "";
+const API_BASE =
+  window.RUNTIME_CONFIG?.API_BASE_URL || "";
+
 const HEALTH_PING_MS = 5000;
 
 export default function App() {
