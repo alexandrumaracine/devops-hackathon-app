@@ -78,5 +78,5 @@ jobs:
             -e TEST_DURATION=${{ github.event.inputs.test_duration }} \
             -e VUS=${{ github.event.inputs.vus }} \
             -e TARGET_URL=${{ github.event.inputs.target_url }} \
-            -v ${{ github.workspace }}/k6:/scripts \
+            -v ${{ github.workspace }}:/scripts \
             grafana/k6 run /scripts/weather-cities-test.js
