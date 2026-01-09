@@ -14,23 +14,29 @@ const cities = [
   "Tirana", "Podgorica"
 ];
 
+// Backend base URL (Container App)
 const BASE_URL = __ENV.TARGET_URL || "http://localhost:3000";
 
 export const options = {
   vus: Number(__ENV.VUS) || 10,
   duration: __ENV.TEST_DURATION || "30s",
+
+  thresholds: {
+    http_req_failed: ["rate<0.01"],        // <1% errors
+    http_req_duration: ["p(95)<2000"],     // p95 < 2s
+  },
 };
 
 export default function () {
   const city = cities[Math.floor(Math.random() * cities.length)];
-  const url = `${BASE_URL}/api/weather?city=${city}`;
+  const url = `${BASE_URL}/api/weather?city=${encodeURIComponent(city)}`;
 
   const res = http.get(url);
 
   check(res, {
     "status is 200": (r) => r.status === 200,
-    "response time < 2s": (r) => r.timings.duration < 2000,
   });
 
+  // small think time to simulate real users
   sleep(1);
 }
