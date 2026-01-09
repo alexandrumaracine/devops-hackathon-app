@@ -1,0 +1,150 @@
+name: Frontend + Backend ECS CI/CD
+
+on:
+  # Uncomment this if you want automatic deploys on main
+  # push:
+  #   branches: ["main"]
+
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+
+  deploy-frontend:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    # Runs only if FE folder changed (for push events) or always for manual dispatch
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      contains(join(github.event.commits.*.modified, ','), 'frontend/') ||
+      contains(join(github.event.commits.*.added, ','), 'frontend/') ||
+      contains(join(github.event.commits.*.removed, ','), 'frontend/')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          # role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token:     ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: eu-central-1
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # NEW: recreate frontend .env from GitHub Secrets (not stored in git)
+      - name: Create frontend .env from secrets
+        run: |
+          {
+            echo "REACT_APP_OPENWEATHER_API_KEY=${{ secrets.FRONTEND_REACT_APP_OPENWEATHER_API_KEY }}"
+            echo "OPENWEATHERMAP_API_KEY=${{ secrets.FRONTEND_OPENWEATHERMAP_API_KEY }}"
+            echo "REACT_APP_API_BASE_URL=${{ secrets.FRONTEND_API_BASE_URL }}"
+          } > app/frontend/.env
+
+      - name: Build frontend image
+        run: |
+          docker build -t frontend:latest ./app/frontend
+          docker tag frontend:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/team2-weather-app-frontend:latest
+
+      - name: Push FE image
+        run: docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/team2-weather-app-frontend:latest
+
+      - name: Download current frontend task definition
+        run: |
+          aws ecs describe-task-definition \
+          --task-definition team2-weather-app-frontend \
+          --region eu-central-1 \
+          --query 'taskDefinition' \
+          > team2-weather-app-frontend.json
+
+      - name: Render frontend task definition
+        id: taskdef
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: team2-weather-app-frontend.json
+          container-name: frontend
+          image: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/team2-weather-app-frontend:latest
+
+      - name: Deploy Frontend Task Definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.taskdef.outputs.task-definition }}
+          service: ${{ vars.AWS_ECR_FRONTEND_SERVICE }}
+          cluster: ${{ vars.AWS_ECR_CLUSTER }}
+          force-new-deployment: true
+
+
+  deploy-backend:
+    name: Deploy Backend
+    runs-on: ubuntu-latest
+    # Runs only if BE folder changed (for push events) or always for manual dispatch
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      contains(join(github.event.commits.*.modified, ','), 'backend/') ||
+      contains(join(github.event.commits.*.added, ','), 'backend/') ||
+      contains(join(github.event.commits.*.removed, ','), 'backend/')
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create backend .env from secrets
+        run: |
+          {
+          echo "MYSQL_ROOT_PASSWORD=${{ secrets.BACKEND_MYSQL_ROOT_PASSWORD }}"
+          echo "MYSQL_DATABASE=${{ secrets.BACKEND_MYSQL_DATABASE }}"
+          echo "MYSQL_USER=${{ secrets.BACKEND_MYSQL_USER }}"
+          echo "MYSQL_PASSWORD=${{ secrets.BACKEND_MYSQL_PASSWORD }}"
+          echo "OPENWEATHER_API_KEY=${{ secrets.BACKEND_OPENWEATHER_API_KEY }}"
+          echo "OPENWEATHERMAP_API_KEY=${{ secrets.BACKEND_OPENWEATHERMAP_API_KEY }}"
+          } > app/backend/.env
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          # role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token:     ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: eu-central-1
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # NOTE: no backend .env here – ECS injects DB + weather secrets from SSM
+
+      - name: Build backend image
+        run: |
+          docker build -t backend:latest ./app/backend
+          docker tag backend:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/team2-weather-app-backend:latest
+
+      - name: Push BE image
+        run: docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/team2-weather-app-backend:latest
+
+      - name: Download current backend task definition
+        run: |
+          aws ecs describe-task-definition \
+          --task-definition team2-weather-app-backend \
+          --region eu-central-1 \
+          --query 'taskDefinition' \
+          > team2-weather-app-backend.json
+          
+      - name: Render backend task definition
+        id: taskdef
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: team2-weather-app-backend.json
+          container-name: backend
+          image: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/team2-weather-app-backend:latest
+
+      - name: Deploy Backend Task Definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.taskdef.outputs.task-definition }}
+          service: ${{ vars.AWS_ECR_BACKEND_SERVICE }}
+          cluster: ${{ vars.AWS_ECR_CLUSTER }}
+          force-new-deployment: true

@@ -1,0 +1,113 @@
+name: Frontend + Backend ECS CI/CD
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+
+  deploy-frontend:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      contains(join(github.event.commits.*.modified, ','), 'frontend/') ||
+      contains(join(github.event.commits.*.added, ','), 'frontend/') ||
+      contains(join(github.event.commits.*.removed, ','), 'frontend/')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token:     ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: eu-central-1
+
+      # - name: Login to ECS
+      #   uses: aws-actions/amazon-ecs-login@v2
+      
+      - name: Download current frontend task definition
+        run: |
+          aws ecs describe-task-definition \
+          --task-definition team2-weather-app-frontend \
+          --region eu-central-1 \
+          --query 'taskDefinition' \
+          > team2-weather-app-frontend.json
+      - name: Debug rendered task definition
+        run: |
+          echo "Rendered task definition:"
+          cat ${{ steps.render-frontend.outputs.task-definition }}
+          echo
+          echo "Extracted image value:"
+          jq '.containerDefinitions[].image' ${{ steps.render-frontend.outputs.task-definition }} || true
+
+
+      - name: Render frontend task definition
+        id: taskdef
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: team2-weather-app-frontend.json
+          container-name: frontend
+          image: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/team2-weather-app-frontend:latest
+
+      - name: Deploy Frontend Task Definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.taskdef.outputs.task-definition }}
+          service: ${{ vars.AWS_ECR_FRONTEND_SERVICE}}
+          cluster: ${{ vars.AWS_ECR_CLUSTER}}
+          force-new-deployment: true
+
+ 
+  deploy-backend:
+    name: Deploy Backend
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      contains(join(github.event.commits.*.modified, ','), 'backend/') ||
+      contains(join(github.event.commits.*.added, ','), 'backend/') ||
+      contains(join(github.event.commits.*.removed, ','), 'backend/')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token:     ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: eu-central-1
+
+      # - name: Login to ECS
+      #   uses: aws-actions/amazon-ecs-login@v2
+
+      - name: Download current backend task definition
+        run: |
+          aws ecs describe-task-definition \
+          --task-definition team2-weather-app-backend \
+          --region eu-central-1 \
+          --query 'taskDefinition' \
+          > team2-weather-app-backend.json
+
+      - name: Render backend task definition
+        id: taskdef
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: team2-weather-app-backend.json
+          container-name: backend
+          image: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/team2-weather-app-backend:latest
+
+      - name: Deploy Backend Task Definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.taskdef.outputs.task-definition }}
+          service: ${{ vars.AWS_ECR_BACKEND_SERVICE }}
+          cluster: ${{ vars.AWS_ECR_CLUSTER }}
+          force-new-deployment: true
