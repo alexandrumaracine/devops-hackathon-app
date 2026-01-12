@@ -29,7 +29,7 @@ export const options = {
 
 export default function () {
   const city = cities[Math.floor(Math.random() * cities.length)];
-  const url = `${BASE_URL}/api/weather?city=${encodeURIComponent(city)}`;
+  const url = `${BASE_URL}/weather?city=${encodeURIComponent(city)}`;
 
   const res = http.get(url);
 
