@@ -54,6 +54,8 @@ on:
           - 30s
           - 2m
           - 5m
+          - 10m
+          - 15m
 
       vus:
         description: "Number of virtual users"
@@ -61,7 +63,7 @@ on:
         default: "20"
 
       target_url:
-        description: "Target base URL (Azure backend)"
+        description: "Target base URL"
         required: true
 
 jobs:
