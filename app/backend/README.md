@@ -33,4 +33,5 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 - **GET /weather?city=CityName**
 
+
 Returns JSON with temperature, description, and icon code.
