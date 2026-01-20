@@ -141,11 +141,11 @@ jobs:
           echo "==> Running k6 load test"
           set +e
           docker run --rm \
+            --user root \
             -e TARGET_URL="${TARGET_URL}" \
             -v "${{ github.workspace }}:/scripts" \
             grafana/k6 run /scripts/weather-cities-scale-test.js \
             --summary-export=/scripts/summary.json \
-            --user root
           K6_EXIT_CODE=$?
           set -e
 

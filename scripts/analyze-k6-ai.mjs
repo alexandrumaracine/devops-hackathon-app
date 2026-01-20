@@ -8,9 +8,19 @@ if (!openaiKey) {
 
 const summaryPath = process.argv[2] || "summary.json";
 const replicasPath = process.argv[3] || "replicas.ndjson";
+const metricsPath  = process.argv[4] || "metrics.ndjson";
 
-const summaryRaw = fs.existsSync(summaryPath) ? fs.readFileSync(summaryPath, "utf8") : "{}";
-const replicasRaw = fs.existsSync(replicasPath) ? fs.readFileSync(replicasPath, "utf8") : "";
+const summaryRaw = fs.existsSync(summaryPath)
+  ? fs.readFileSync(summaryPath, "utf8")
+  : "{}";
+
+const replicasRaw = fs.existsSync(replicasPath)
+  ? fs.readFileSync(replicasPath, "utf8")
+  : "";
+
+const metricsRaw = fs.existsSync(metricsPath)
+  ? fs.readFileSync(metricsPath, "utf8")
+  : "";
 
 let summary;
 try { summary = JSON.parse(summaryRaw); }
