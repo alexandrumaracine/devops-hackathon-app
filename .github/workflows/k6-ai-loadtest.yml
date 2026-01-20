@@ -144,11 +144,12 @@ jobs:
             --user root \
             -e TARGET_URL="${TARGET_URL}" \
             -v "${{ github.workspace }}:/scripts" \
-            grafana/k6 run /scripts/weather-cities-scale-test.js \
-            --summary-export=/scripts/summary.json \
+            grafana/k6 \
+            run /scripts/weather-cities-scale-test.js \
+            --summary-export=/scripts/summary.json
+
           K6_EXIT_CODE=$?
           set -e
-
           echo "==> k6 exit code: ${K6_EXIT_CODE}"
 
           echo "==> Generated files:"
