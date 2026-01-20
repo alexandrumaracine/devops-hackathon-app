@@ -23,28 +23,36 @@ if (!BASE_URL) {
 }
 
 /**
- * ~3.5 minutes total
- * Designed to:
- * - Warm up quickly
- * - Trigger at least one scale-out
- * - Observe stabilization
+ * ~10 minutes total
+ *
+ * Goals:
+ * - Gradual warm-up (avoid cold-start bias)
+ * - Trigger first scale-out
+ * - Observe stabilization under sustained load
+ * - Push higher load to test scaling limits
+ * - Allow scale-in during cool-down
  */
 export const options = {
   stages: [
-    { duration: "45s", target: 30 },   // warm-up
-    { duration: "60s", target: 120 },  // trigger scale-out
-    { duration: "60s", target: 220 },  // sustained pressure
-    { duration: "30s", target: 0 },    // cool-down
+    { duration: "1m", target: 30 },    // warm-up
+    { duration: "2m", target: 120 },   // first scale-out
+    { duration: "3m", target: 220 },   // sustained load (steady state)
+    { duration: "2m", target: 350 },   // higher pressure / next scale-out
+    { duration: "2m", target: 0 },     // cool-down / scale-in
   ],
 
   thresholds: {
-    http_req_failed: ["rate<0.02"],
-    http_req_duration: ["p(95)<3500"],
+    http_req_failed: ["rate<0.02"],        // <2% errors
+    http_req_duration: ["p(95)<4000"],     // p95 < 4s
   },
 
+  /**
+   * Tags used later by AI for context
+   */
   tags: {
-    test_type: "autoscaling-short",
+    test_type: "autoscaling-long",
     app: "skycastnow-backend",
+    duration: "10m",
   },
 };
 
@@ -58,6 +66,10 @@ export default function () {
     "status is 200": (r) => r.status === 200,
   });
 
-  // keep concurrency high
-  sleep(0.15);
+  /**
+   * Small think time:
+   * - Keeps concurrency high
+   * - Still realistic for user behavior
+   */
+  sleep(0.2);
 }
