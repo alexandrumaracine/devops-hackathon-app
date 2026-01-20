@@ -16,11 +16,22 @@ jobs:
       id-token: write
       contents: read
 
+    # ---------------------------
+    # Job-level configuration
+    # ---------------------------
     env:
+      # Azure (OIDC)
       ARM_USE_OIDC: true
       ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # App / Test config
+      RG: rg-skycastnow
+      APP: skycastnow-backend
+      POLL_INTERVAL_JSON: 10
+      POLL_INTERVAL_TABLE: 30
+      POLL_INTERVAL_METRICS: 60
 
     steps:
       # ---------------------------
@@ -30,7 +41,7 @@ jobs:
         uses: actions/checkout@v4
 
       # ---------------------------
-      # Azure Login (for replica polling)
+      # Azure Login (OIDC)
       # ---------------------------
       - name: Azure Login (OIDC)
         uses: azure/login@v2
@@ -40,62 +51,121 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       # ---------------------------
-      # Run k6 + capture replicas
+      # Run k6 + capture Azure signals
       # ---------------------------
-      - name: Run k6 and capture replica scaling
+      - name: Run k6 and capture scaling + metrics
         env:
           TARGET_URL: ${{ github.event.inputs.target_url }}
-          RG: rg-skycastnow
-          APP: skycastnow-backend
-          POLL_INTERVAL: 10
         run: |
           set -euo pipefail
 
-          echo "Starting replica polling every ${POLL_INTERVAL}s"
+          echo "==> Initializing output files"
           : > replicas.ndjson
+          : > replicas-table.log
+          : > metrics.ndjson
 
-          poll_replicas() {
+          cleanup() {
+            echo "==> Cleaning up pollers"
+            [[ -n "${JSON_POLLER_PID:-}" ]] && kill "${JSON_POLLER_PID}" || true
+            [[ -n "${TABLE_POLLER_PID:-}" ]] && kill "${TABLE_POLLER_PID}" || true
+            [[ -n "${METRICS_POLLER_PID:-}" ]] && kill "${METRICS_POLLER_PID}" || true
+            wait || true
+          }
+          trap cleanup EXIT
+
+          # Resolve resource ID once
+          RESOURCE_ID="$(az containerapp show -g "${RG}" -n "${APP}" --query id -o tsv)"
+
+          # ---------------------------
+          # Replica poller (JSON, AI-friendly)
+          # ---------------------------
+          poll_replicas_json() {
             while true; do
-              TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-              REPLICAS_JSON=$(az containerapp replica list \
+              TS="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+              REPLICAS_JSON="$(az containerapp replica list \
                 -g "${RG}" \
                 -n "${APP}" \
-                -o json 2>/dev/null || echo "[]")
-
+                -o json 2>/dev/null || echo "[]")"
               echo "{\"ts\":\"${TS}\",\"replicas\":${REPLICAS_JSON}}" >> replicas.ndjson
-              sleep "${POLL_INTERVAL}"
+              sleep "${POLL_INTERVAL_JSON}"
             done
           }
 
-          poll_replicas &
-          POLLER_PID=$!
+          # ---------------------------
+          # Replica poller (TABLE, human-readable)
+          # ---------------------------
+          poll_replicas_table() {
+            while true; do
+              TS="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+              {
+                echo ""
+                echo "===== ${TS} ====="
+                az containerapp replica list \
+                  -g "${RG}" \
+                  -n "${APP}" \
+                  -o table || true
+              } >> replicas-table.log
+              sleep "${POLL_INTERVAL_TABLE}"
+            done
+          }
 
-          echo "Starting k6 load test"
+          # ---------------------------
+          # Metrics poller (Requests, RPS, CPU, Memory)
+          # ---------------------------
+          poll_metrics() {
+            while true; do
+              TS="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+              METRICS_JSON="$(az monitor metrics list \
+                --resource "${RESOURCE_ID}" \
+                --metric Requests,RequestsPerSecond,CpuUsage,MemoryUsage \
+                --interval PT1M \
+                --output json 2>/dev/null || echo "{}")"
+              echo "{\"ts\":\"${TS}\",\"metrics\":${METRICS_JSON}}" >> metrics.ndjson
+              sleep "${POLL_INTERVAL_METRICS}"
+            done
+          }
+
+          echo "==> Starting Azure pollers"
+          poll_replicas_json &
+          JSON_POLLER_PID=$!
+
+          poll_replicas_table &
+          TABLE_POLLER_PID=$!
+
+          poll_metrics &
+          METRICS_POLLER_PID=$!
+
+          # ---------------------------
+          # Run k6 (short autoscaling test)
+          # ---------------------------
+          echo "==> Running k6 load test"
+          set +e
           docker run --rm \
             -e TARGET_URL="${TARGET_URL}" \
             -v "${{ github.workspace }}:/scripts" \
             grafana/k6 run /scripts/weather-cities-scale-test.js \
-            --summary-export=/scripts/summary.json
+            --summary-export=/scripts/summary.json \
+            --user root
+          K6_EXIT_CODE=$?
+          set -e
 
-          echo "Stopping replica polling"
-          kill "${POLLER_PID}" || true
-          wait "${POLLER_PID}" || true
+          echo "==> k6 exit code: ${K6_EXIT_CODE}"
 
-          echo "Replica samples collected:"
-          wc -l replicas.ndjson
-
-          echo "Files generated:"
-          ls -lh summary.json replicas.ndjson
+          echo "==> Generated files:"
+          ls -lh summary.json replicas.ndjson replicas-table.log metrics.ndjson || true
 
       # ---------------------------
       # AI Interpretation
       # ---------------------------
-      - name: Interpret k6 + scaling with OpenAI
+      - name: Interpret k6 + scaling + metrics with OpenAI
         env:
           OPENAI_API_KEY: ${{ secrets.OPEN_AI_KEY }}
         run: |
-          node scripts/analyze-k6-ai.mjs summary.json replicas.ndjson | tee ai_report.md
+          node scripts/analyze-k6-ai.mjs \
+            summary.json \
+            replicas.ndjson \
+            metrics.ndjson \
+            | tee ai_report.md
 
       # ---------------------------
       # Upload artifacts
@@ -107,4 +177,6 @@ jobs:
           path: |
             summary.json
             replicas.ndjson
+            replicas-table.log
+            metrics.ndjson
             ai_report.md

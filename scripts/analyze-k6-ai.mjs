@@ -19,46 +19,66 @@ catch { summary = { _parseError: true, raw: summaryRaw.slice(0, 20000) }; }
 const replicasSample = replicasRaw.split("\n").filter(Boolean).slice(-400).join("\n");
 
 const prompt = `
-You are a senior SRE + performance engineer.
+You are a senior SRE and performance engineer.
 
-You will be given:
+You are given results from a short autoscaling load test on Azure Container Apps.
+
+Inputs:
 (A) k6 summary JSON
-(B) a timeline of Azure Container Apps replica snapshots captured during the test.
-Each replica snapshot is one JSON object per line with a timestamp.
+(B) Replica timeline (ndjson, timestamped)
+(C) Azure metrics timeline (ndjson, timestamped) including:
+    - Requests
+    - RequestsPerSecond
+    - CPU usage
+    - Memory usage
 
-Goals:
-1) Interpret performance: throughput, latency (p50/p90/p95/p99 if present), error rate, checks, trends.
-2) Interpret autoscaling: when replicas increased/decreased, whether scaling lagged behind load, any instability.
-3) Provide actionable recommendations for Azure Container Apps scaling rules and app resources.
+Your goals:
+1) Explain application performance (latency, errors, throughput).
+2) Correlate k6 load stages with:
+   - replica count changes
+   - CPU / memory usage
+   - request volume
+3) Determine WHY autoscaling happened (or didn’t).
+4) Identify scaling lag and likely root cause.
+5) Give concrete, actionable recommendations.
 
-Output format (strict):
-# Executive summary (max 6 lines)
+Strict output format:
+
+# Executive summary (max 5 lines)
+
+# Load & performance
+- Requests/s:
+- Error rate:
+- p95 latency:
+- Notes:
+
+# Autoscaling analysis
+- When scale-out started:
+- Replica progression:
+- Scaling lag (seconds):
+- Stability after scale-out:
+
+# Resource & metrics analysis
+- CPU behavior:
+- Memory behavior:
+- Traffic pattern:
+
+# Root cause hypothesis
 - ...
 
-# Key metrics
-- Requests/s: ...
-- Error rate: ...
-- Latency: p50=..., p95=..., p99=...
-- Duration: ...
-- Notes: ...
+# Recommendations
+- Scaling rules:
+- Resource sizing:
+- App or test changes:
 
-# Autoscaling timeline insights
-- ...
-
-# Likely bottlenecks (ranked)
-1) ...
-2) ...
-
-# Recommendations (concrete)
-- Scaling rule adjustments: ...
-- Resource adjustments (CPU/mem/concurrency): ...
-- Test improvements: ...
-
-Here is (A) k6 summary JSON:
+(A) k6 summary:
 ${JSON.stringify(summary).slice(0, 120000)}
 
-Here is (B) replicas timeline (ndjson, last ~400 lines):
-${replicasSample || "(no replicas data)"}
+(B) replicas timeline:
+${replicasSample || "(none)"}
+
+(C) metrics timeline:
+${metricsRaw.split("\n").slice(-200).join("\n") || "(none)"}
 `.trim();
 
 async function run() {

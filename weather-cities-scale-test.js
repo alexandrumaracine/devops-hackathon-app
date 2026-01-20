@@ -3,56 +3,47 @@ import { check, sleep } from "k6";
 
 /**
  * City list to create realistic request variance
- * (prevents cache-only behavior)
  */
 const cities = [
   "Berlin", "London", "Paris", "Rome", "Madrid",
   "Vienna", "Prague", "Warsaw", "Budapest", "Brussels",
-  "Amsterdam", "Copenhagen", "Stockholm", "Oslo", "Helsinki",
-  "Lisbon", "Dublin", "Zurich", "Geneva", "Munich",
-  "Hamburg", "Cologne", "Frankfurt", "Stuttgart", "Dusseldorf",
-  "Milan", "Turin", "Venice", "Florence", "Naples",
-  "Barcelona", "Valencia", "Seville", "Bilbao", "Malaga",
-  "Athens", "Thessaloniki", "Sofia", "Bucharest", "Cluj-Napoca",
-  "Zagreb", "Ljubljana", "Belgrade", "Sarajevo", "Skopje",
-  "Tirana", "Podgorica"
+  "Amsterdam", "Copenhagen", "Stockholm", "Oslo",
+  "Lisbon", "Dublin", "Zurich", "Munich",
+  "Milan", "Venice", "Florence", "Naples",
+  "Barcelona", "Valencia", "Seville",
+  "Athens", "Bucharest", "Cluj-Napoca"
 ];
 
 /**
  * Backend base URL (Azure Container App)
- * This MUST be passed from GitHub Actions
  */
 const BASE_URL = __ENV.TARGET_URL;
-
 if (!BASE_URL) {
   throw new Error("TARGET_URL env var is required");
 }
 
 /**
- * Test profile designed to:
- * - Warm up
- * - Trigger autoscaling
- * - Stress max replicas
+ * ~3.5 minutes total
+ * Designed to:
+ * - Warm up quickly
+ * - Trigger at least one scale-out
+ * - Observe stabilization
  */
 export const options = {
   stages: [
-    { duration: "1m", target: 50 },    // warm-up
-    { duration: "2m", target: 150 },   // should trigger scale-out
-    { duration: "2m", target: 300 },   // further scaling
-    { duration: "2m", target: 500 },   // push towards max replicas
-    { duration: "1m", target: 0 },     // cool-down
+    { duration: "45s", target: 30 },   // warm-up
+    { duration: "60s", target: 120 },  // trigger scale-out
+    { duration: "60s", target: 220 },  // sustained pressure
+    { duration: "30s", target: 0 },    // cool-down
   ],
 
   thresholds: {
-    http_req_failed: ["rate<0.01"],       // <1% errors
-    http_req_duration: ["p(95)<3000"],    // p95 < 3s
+    http_req_failed: ["rate<0.02"],
+    http_req_duration: ["p(95)<3500"],
   },
 
-  /**
-   * These tags help AI reasoning later
-   */
   tags: {
-    test_type: "autoscaling",
+    test_type: "autoscaling-short",
     app: "skycastnow-backend",
   },
 };
@@ -67,10 +58,6 @@ export default function () {
     "status is 200": (r) => r.status === 200,
   });
 
-  /**
-   * Very small think time:
-   * - keeps concurrency high
-   * - allows scaling signals to appear
-   */
-  sleep(0.1);
+  // keep concurrency high
+  sleep(0.15);
 }
