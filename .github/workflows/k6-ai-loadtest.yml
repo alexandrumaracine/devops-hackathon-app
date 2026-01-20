@@ -1,82 +1,110 @@
-﻿# name: K6 Cloud Load Test
-
-# on:
-#   workflow_dispatch:
-#     inputs:
-#       test_duration:
-#         description: "How long the load test should run"
-#         required: true
-#         type: choice
-#         options:
-#           - 30s
-#           - 2m
-
-#       vus:
-#         description: "Number of virtual users"
-#         required: true
-#         default: "50"
-
-#       target_url:
-#         description: "Target base URL"
-#         required: true
-#         default: "https://jsonplaceholder.typicode.com/posts"
-
-# jobs:
-#   loadtest:
-#     runs-on: ubuntu-latest
-
-#     steps:
-#       - name: Checkout repository
-#         uses: actions/checkout@v4
-
-#       - name: Run K6 in Grafana Cloud
-#         env:
-#           K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
-#         run: |
-#           docker run --rm \
-#             -e K6_CLOUD_TOKEN=$K6_CLOUD_TOKEN \
-#             -e TEST_DURATION=${{ github.event.inputs.test_duration }} \
-#             -e VUS=${{ github.event.inputs.vus }} \
-#             -e TARGET_URL=${{ github.event.inputs.target_url }} \
-#             -v ${{ github.workspace }}:/scripts \
-#             grafana/k6 cloud /scripts/dummy-test.js
-
-name: K6 Local Load Test
+﻿name: K6 Local Load Test + AI Interpretation
 
 on:
   workflow_dispatch:
     inputs:
-      test_duration:
-        description: "How long the load test should run"
-        required: true
-        type: choice
-        options:
-          - 30s
-          - 2m
-          - 5m
-          - 10m
-          - 15m
-
-      vus:
-        description: "Number of virtual users"
-        required: true
-        default: "20"
-
       target_url:
-        description: "Target base URL"
+        description: "Target base URL (backend Container App)"
         required: true
+        default: "https://YOUR_BACKEND.azurecontainerapps.io"
 
 jobs:
   loadtest:
     runs-on: ubuntu-latest
 
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      ARM_USE_OIDC: true
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
     steps:
+      # ---------------------------
+      # Checkout
+      # ---------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run k6 load test locally
+      # ---------------------------
+      # Azure Login (for replica polling)
+      # ---------------------------
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # ---------------------------
+      # Run k6 + capture replicas
+      # ---------------------------
+      - name: Run k6 and capture replica scaling
+        env:
+          TARGET_URL: ${{ github.event.inputs.target_url }}
+          RG: rg-skycastnow
+          APP: skycastnow-backend
+          POLL_INTERVAL: 10
         run: |
+          set -euo pipefail
+
+          echo "Starting replica polling every ${POLL_INTERVAL}s"
+          : > replicas.ndjson
+
+          poll_replicas() {
+            while true; do
+              TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+              REPLICAS_JSON=$(az containerapp replica list \
+                -g "${RG}" \
+                -n "${APP}" \
+                -o json 2>/dev/null || echo "[]")
+
+              echo "{\"ts\":\"${TS}\",\"replicas\":${REPLICAS_JSON}}" >> replicas.ndjson
+              sleep "${POLL_INTERVAL}"
+            done
+          }
+
+          poll_replicas &
+          POLLER_PID=$!
+
+          echo "Starting k6 load test"
           docker run --rm \
-            -e TARGET_URL=${{ github.event.inputs.target_url }} \
-            -v ${{ github.workspace }}:/scripts \
-            grafana/k6 run /scripts/weather-cities-scale-test.js
+            -e TARGET_URL="${TARGET_URL}" \
+            -v "${{ github.workspace }}:/scripts" \
+            grafana/k6 run /scripts/weather-cities-scale-test.js \
+            --summary-export=/scripts/summary.json
+
+          echo "Stopping replica polling"
+          kill "${POLLER_PID}" || true
+          wait "${POLLER_PID}" || true
+
+          echo "Replica samples collected:"
+          wc -l replicas.ndjson
+
+          echo "Files generated:"
+          ls -lh summary.json replicas.ndjson
+
+      # ---------------------------
+      # AI Interpretation
+      # ---------------------------
+      - name: Interpret k6 + scaling with OpenAI
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPEN_AI_KEY }}
+        run: |
+          node scripts/analyze-k6-ai.mjs summary.json replicas.ndjson | tee ai_report.md
+
+      # ---------------------------
+      # Upload artifacts
+      # ---------------------------
+      - name: Upload k6 AI artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-ai-analysis
+          path: |
+            summary.json
+            replicas.ndjson
+            ai_report.md
