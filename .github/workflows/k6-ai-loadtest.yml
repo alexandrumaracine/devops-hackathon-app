@@ -1,0 +1,82 @@
+﻿# name: K6 Cloud Load Test
+
+# on:
+#   workflow_dispatch:
+#     inputs:
+#       test_duration:
+#         description: "How long the load test should run"
+#         required: true
+#         type: choice
+#         options:
+#           - 30s
+#           - 2m
+
+#       vus:
+#         description: "Number of virtual users"
+#         required: true
+#         default: "50"
+
+#       target_url:
+#         description: "Target base URL"
+#         required: true
+#         default: "https://jsonplaceholder.typicode.com/posts"
+
+# jobs:
+#   loadtest:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       - name: Checkout repository
+#         uses: actions/checkout@v4
+
+#       - name: Run K6 in Grafana Cloud
+#         env:
+#           K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
+#         run: |
+#           docker run --rm \
+#             -e K6_CLOUD_TOKEN=$K6_CLOUD_TOKEN \
+#             -e TEST_DURATION=${{ github.event.inputs.test_duration }} \
+#             -e VUS=${{ github.event.inputs.vus }} \
+#             -e TARGET_URL=${{ github.event.inputs.target_url }} \
+#             -v ${{ github.workspace }}:/scripts \
+#             grafana/k6 cloud /scripts/dummy-test.js
+
+name: K6 Local Load Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_duration:
+        description: "How long the load test should run"
+        required: true
+        type: choice
+        options:
+          - 30s
+          - 2m
+          - 5m
+          - 10m
+          - 15m
+
+      vus:
+        description: "Number of virtual users"
+        required: true
+        default: "20"
+
+      target_url:
+        description: "Target base URL"
+        required: true
+
+jobs:
+  loadtest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run k6 load test locally
+        run: |
+          docker run --rm \
+            -e TARGET_URL=${{ github.event.inputs.target_url }} \
+            -v ${{ github.workspace }}:/scripts \
+            grafana/k6 run /scripts/weather-cities-scale-test.js
