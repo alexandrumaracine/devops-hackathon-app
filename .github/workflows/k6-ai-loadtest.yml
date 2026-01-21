@@ -38,6 +38,18 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      
+      - name: Enable load-test mode on backend
+        run: |
+          echo "==> Enabling LOAD_TEST mode on backend container app"
+
+          az containerapp update \
+            -g "${RG}" \
+            -n "${APP}" \
+            --set-env-vars \
+              LOAD_TEST=true \
+              LOAD_TEST_SEED=42 \
+              DISABLE_DB=true
 
       - name: Run k6 and capture scaling + metrics
         env:
@@ -157,6 +169,18 @@ jobs:
         run: |
           npm install chartjs-node-canvas --no-save
           node scripts/plot-autoscaling.mjs
+
+      - name: Disable load-test mode on backend
+        if: always()
+        run: |
+          echo "==> Disabling LOAD_TEST mode"
+
+          az containerapp update \
+            -g "${RG}" \
+            -n "${APP}" \
+            --set-env-vars \
+              LOAD_TEST=false \
+              DISABLE_DB=false    
 
       - name: Upload k6 AI artifacts
         uses: actions/upload-artifact@v4
