@@ -75,6 +75,14 @@ jobs:
 
           # Resolve resource ID once
           RESOURCE_ID="$(az containerapp show -g "${RG}" -n "${APP}" --query id -o tsv)"
+          ENV_ID="$(az containerapp show -g "${RG}" -n "${APP}" --query environmentId -o tsv)"
+          ENV_NAME="$(basename "${ENV_ID}")"
+
+          LAW_ID="$(az containerapp env show \
+            -g "${RG}" \
+            -n "${ENV_NAME}" \
+            --query appLogsConfiguration.logAnalyticsConfiguration.customerId \
+            -o tsv)
 
           # ---------------------------
           # Replica poller (JSON, AI-friendly)
@@ -86,7 +94,8 @@ jobs:
                 -g "${RG}" \
                 -n "${APP}" \
                 -o json 2>/dev/null || echo "[]")"
-              echo "{\"ts\":\"${TS}\",\"replicas\":${REPLICAS_JSON}}" >> replicas.ndjson
+              COUNT="$(echo "${REPLICAS_JSON}" | jq length 2>/dev/null || echo 0)"
+              echo "{\"ts\":\"${TS}\",\"replicaCount\":${COUNT},\"replicas\":${REPLICAS_JSON}}" >> replicas.ndjson
               sleep "${POLL_INTERVAL_JSON}"
             done
           }
@@ -113,16 +122,30 @@ jobs:
           # Metrics poller (Requests, RPS, CPU, Memory)
           # ---------------------------
           poll_metrics() {
-            while true; do
-              TS="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-              METRICS_JSON="$(az monitor metrics list \
-                --resource "${RESOURCE_ID}" \
-                --metric Requests,RequestsPerSecond,CpuUsage,MemoryUsage \
-                --interval PT1M \
-                --output json 2>/dev/null || echo "{}")"
-              echo "{\"ts\":\"${TS}\",\"metrics\":${METRICS_JSON}}" >> metrics.ndjson
-              sleep "${POLL_INTERVAL_METRICS}"
-            done
+          while true; do
+            TS="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+            QUERY='
+            ContainerAppConsoleLogs_CL
+            | where ContainerAppName_s == "'${APP}'"
+            | summarize
+                cpu_avg = avg(todouble(CpuUsage_s)),
+                cpu_max = max(todouble(CpuUsage_s)),
+                mem_avg = avg(todouble(MemoryWorkingSetBytes_s)),
+                mem_max = max(todouble(MemoryWorkingSetBytes_s))
+              by bin(TimeGenerated, 1m)
+            | order by TimeGenerated desc
+            | take 5
+            '
+
+            METRICS_JSON="$(az monitor log-analytics query \
+              --workspace "${LAW_ID}" \
+              --analytics-query "${QUERY}" \
+              -o json 2>/dev/null || echo "{}")"
+
+            echo "{\"ts\":\"${TS}\",\"logAnalytics\":${METRICS_JSON}}" >> metrics.ndjson
+            sleep "${POLL_INTERVAL_METRICS}"
+          done
           }
 
           echo "==> Starting Azure pollers"

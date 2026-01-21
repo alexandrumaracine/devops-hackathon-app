@@ -37,12 +37,15 @@ Inputs:
 (A) k6 summary JSON
 (B) Replica timeline (ndjson, timestamped)
 (C) Azure metrics timeline (ndjson, timestamped) including:
-    - Requests
-    - RequestsPerSecond
-    - CPU usage
-    - Memory usage
+    - CPU avg / max
+    - Memory avg / max
+    - Container-level resource pressure from Log Analytics
 
 Your goals:
+MOST IMPORTANT:
+- Identify exact timestamps where replicaCount changed
+- Correlate replica increases with CPU and memory pressure
+- Quantify scaling lag in seconds between load increase and replica change
 1) Explain application performance (latency, errors, throughput).
 2) Correlate k6 load stages with:
    - replica count changes
