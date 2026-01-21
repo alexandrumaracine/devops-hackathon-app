@@ -55,6 +55,14 @@ MOST IMPORTANT:
 4) Identify scaling lag and likely root cause.
 5) Give concrete, actionable recommendations.
 
+Additionally:
+- Generate ASCII or conceptual graphs showing:
+  - replicaCount vs time
+  - CPU vs time
+  - memory vs time
+- Mark scale-out events and estimated scaling lag
+- Describe what each graph would show visually
+
 Strict output format:
 
 # Executive summary (max 5 lines)
