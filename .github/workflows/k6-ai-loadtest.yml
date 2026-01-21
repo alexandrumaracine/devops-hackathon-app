@@ -38,7 +38,10 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      
+
+      # --------------------------------------------------------------------
+      # Enable deterministic mock mode on backend
+      # --------------------------------------------------------------------
       - name: Enable load-test mode on backend
         run: |
           echo "==> Enabling LOAD_TEST mode on backend container app"
@@ -50,9 +53,12 @@ jobs:
               LOAD_TEST=true \
               LOAD_TEST_SEED=42 \
               DISABLE_DB=true
-      
-            - name: Wait for backend revision with LOAD_TEST enabled
-        
+
+      # --------------------------------------------------------------------
+      # Wait until the new revision is actually serving traffic
+      # --------------------------------------------------------------------
+      - name: Wait for backend revision with LOAD_TEST enabled
+        run: |
           echo "==> Waiting for new revision to become active..."
 
           for i in {1..30}; do
@@ -85,7 +91,13 @@ jobs:
           done
 
           echo "==> Backend revision is ready"
-        
+
+          # Optional sanity check
+          curl -f "${{ github.event.inputs.target_url }}/weather?city=Berlin" >/dev/null
+
+      # --------------------------------------------------------------------
+      # Run k6 + poll replicas and metrics
+      # --------------------------------------------------------------------
       - name: Run k6 and capture scaling + metrics
         env:
           TARGET_URL: ${{ github.event.inputs.target_url }}
@@ -106,7 +118,6 @@ jobs:
           }
           trap cleanup EXIT
 
-          RESOURCE_ID="$(az containerapp show -g "${RG}" -n "${APP}" --query id -o tsv)"
           ENV_ID="$(az containerapp show -g "${RG}" -n "${APP}" --query environmentId -o tsv)"
           ENV_NAME="$(basename "${ENV_ID}")"
 
@@ -119,8 +130,14 @@ jobs:
           poll_replicas_json() {
             while true; do
               TS="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-              REPLICAS_JSON="$(az containerapp replica list -g "${RG}" -n "${APP}" -o json 2>/dev/null || echo "[]")"
+
+              REPLICAS_JSON="$(az containerapp replica list \
+                -g "${RG}" \
+                -n "${APP}" \
+                -o json 2>/dev/null | jq -c '.' || echo "[]")"
+
               COUNT="$(echo "${REPLICAS_JSON}" | jq length 2>/dev/null || echo 0)"
+
               echo "{\"ts\":\"${TS}\",\"replicaCount\":${COUNT},\"replicas\":${REPLICAS_JSON}}" >> replicas.ndjson
               sleep "${POLL_INTERVAL_JSON}"
             done
@@ -155,15 +172,14 @@ jobs:
           | take 5
           EOF
 
-                      RAW_METRICS_JSON="$(az monitor log-analytics query \
-          --workspace "${LAW_ID}" \
-          --analytics-query "${QUERY}" \
-          -o json 2>/dev/null || echo "{}")"
+              RAW_METRICS_JSON="$(az monitor log-analytics query \
+                --workspace "${LAW_ID}" \
+                --analytics-query "${QUERY}" \
+                -o json 2>/dev/null || echo "{}")"
 
               METRICS_JSON="$(echo "${RAW_METRICS_JSON}" | jq -c '.')"
 
               echo "{\"ts\":\"${TS}\",\"logAnalytics\":${METRICS_JSON}}" >> metrics.ndjson
-
               sleep "${POLL_INTERVAL_METRICS}"
             done
           }
@@ -188,6 +204,9 @@ jobs:
           echo "==> k6 exit code: ${K6_EXIT_CODE}"
           ls -lh summary.json replicas.ndjson replicas-table.log metrics.ndjson || true
 
+      # --------------------------------------------------------------------
+      # AI interpretation
+      # --------------------------------------------------------------------
       - name: Interpret k6 + scaling + metrics with OpenAI
         env:
           OPENAI_API_KEY: ${{ secrets.OPEN_AI_KEY }}
@@ -197,7 +216,7 @@ jobs:
             replicas.ndjson \
             metrics.ndjson \
             | tee ai_report.md
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -208,6 +227,9 @@ jobs:
           npm install chartjs-node-canvas --no-save
           node scripts/plot-autoscaling.mjs
 
+      # --------------------------------------------------------------------
+      # Restore normal backend behavior
+      # --------------------------------------------------------------------
       - name: Disable load-test mode on backend
         if: always()
         run: |
@@ -218,7 +240,7 @@ jobs:
             -n "${APP}" \
             --set-env-vars \
               LOAD_TEST=false \
-              DISABLE_DB=false    
+              DISABLE_DB=false
 
       - name: Upload k6 AI artifacts
         uses: actions/upload-artifact@v4
