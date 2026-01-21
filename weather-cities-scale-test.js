@@ -15,7 +15,7 @@ const cities = [
 ];
 
 /**
- * Backend base URL (Azure Container App)
+ * Backend base URL
  */
 const BASE_URL = __ENV.TARGET_URL;
 if (!BASE_URL) {
@@ -23,36 +23,32 @@ if (!BASE_URL) {
 }
 
 /**
- * ~10 minutes total
+ * ~4 minutes total
  *
  * Goals:
- * - Gradual warm-up (avoid cold-start bias)
- * - Trigger first scale-out
- * - Observe stabilization under sustained load
- * - Push higher load to test scaling limits
- * - Allow scale-in during cool-down
+ * - Warm-up without stressing OpenWeather
+ * - Light concurrency increase
+ * - Observe latency stability
+ * - CI-safe execution
  */
 export const options = {
   stages: [
-    { duration: "1m", target: 30 },    // warm-up
-    { duration: "2m", target: 120 },   // first scale-out
-    { duration: "3m", target: 220 },   // sustained load (steady state)
-    { duration: "2m", target: 350 },   // higher pressure / next scale-out
-    { duration: "2m", target: 0 },     // cool-down / scale-in
+    { duration: "30s", target: 5 },   // warm-up
+    { duration: "1m", target: 15 },   // light load
+    { duration: "1m", target: 30 },   // moderate sustained load
+    { duration: "1m", target: 40 },   // peak (safe)
+    { duration: "30s", target: 0 },   // cool-down
   ],
 
   thresholds: {
-    http_req_failed: ["rate<0.02"],        // <2% errors
-    http_req_duration: ["p(95)<4000"],     // p95 < 4s
+    http_req_failed: ["rate<0.01"],        // <1% errors
+    http_req_duration: ["p(95)<2500"],     // p95 < 2.5s
   },
 
-  /**
-   * Tags used later by AI for context
-   */
   tags: {
-    test_type: "autoscaling-long",
+    test_type: "autoscaling-light",
     app: "skycastnow-backend",
-    duration: "10m",
+    duration: "4m",
   },
 };
 
@@ -67,9 +63,10 @@ export default function () {
   });
 
   /**
-   * Small think time:
-   * - Keeps concurrency high
-   * - Still realistic for user behavior
+   * Increased think time:
+   * - lowers request rate
+   * - reduces OpenWeather pressure
+   * - still realistic for user behavior
    */
-  sleep(0.2);
+  sleep(0.5);
 }
