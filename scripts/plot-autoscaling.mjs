@@ -5,13 +5,20 @@ const width = 1200;
 const height = 600;
 const chart = new ChartJSNodeCanvas({ width, height });
 
-function readNDJSON(path) {
-  if (!fs.existsSync(path)) return [];
+function readNDJSON(file) {
   return fs
-    .readFileSync(path, "utf8")
+    .readFileSync(file, "utf8")
     .split("\n")
     .filter(Boolean)
-    .map(JSON.parse);
+    .map((line, idx) => {
+      try {
+        return JSON.parse(line);
+      } catch (err) {
+        console.warn(`⚠️ Invalid JSON at line ${idx + 1}, skipping`);
+        return null;
+      }
+    })
+    .filter(Boolean);
 }
 
 const replicas = readNDJSON("replicas.ndjson");
