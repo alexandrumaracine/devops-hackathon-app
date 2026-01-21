@@ -50,7 +50,42 @@ jobs:
               LOAD_TEST=true \
               LOAD_TEST_SEED=42 \
               DISABLE_DB=true
+      
+            - name: Wait for backend revision with LOAD_TEST enabled
+        
+          echo "==> Waiting for new revision to become active..."
 
+          for i in {1..30}; do
+            REVISION="$(az containerapp show \
+              -g "${RG}" \
+              -n "${APP}" \
+              --query properties.latestRevisionName \
+              -o tsv)"
+
+            STATUS="$(az containerapp revision show \
+              -g "${RG}" \
+              -n "${APP}" \
+              --revision "${REVISION}" \
+              --query properties.runningState \
+              -o tsv)"
+
+            echo "Attempt $i: revision=${REVISION}, state=${STATUS}"
+
+            if [[ "${STATUS}" == "Running" ]]; then
+              echo "✅ Revision ${REVISION} is running"
+              break
+            fi
+
+            if [[ "$i" -eq 30 ]]; then
+              echo "❌ Timed out waiting for revision to become active"
+              exit 1
+            fi
+
+            sleep 10
+          done
+
+          echo "==> Backend revision is ready"
+        
       - name: Run k6 and capture scaling + metrics
         env:
           TARGET_URL: ${{ github.event.inputs.target_url }}
@@ -120,12 +155,15 @@ jobs:
           | take 5
           EOF
 
-              METRICS_JSON="$(az monitor log-analytics query \
-                --workspace "${LAW_ID}" \
-                --analytics-query "${QUERY}" \
-                -o json 2>/dev/null || echo "{}")"
+                      RAW_METRICS_JSON="$(az monitor log-analytics query \
+          --workspace "${LAW_ID}" \
+          --analytics-query "${QUERY}" \
+          -o json 2>/dev/null || echo "{}")"
+
+              METRICS_JSON="$(echo "${RAW_METRICS_JSON}" | jq -c '.')"
 
               echo "{\"ts\":\"${TS}\",\"logAnalytics\":${METRICS_JSON}}" >> metrics.ndjson
+
               sleep "${POLL_INTERVAL_METRICS}"
             done
           }
