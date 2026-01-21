@@ -1,11 +1,11 @@
 from fastapi import FastAPI, HTTPException, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 import os
-import requests
 from dotenv import load_dotenv, find_dotenv
 from datetime import datetime
 
 from db import init_db, save_search, SessionLocal, SearchHistory
+from provider_factory import get_weather_provider
 
 load_dotenv(find_dotenv())
 
@@ -19,7 +19,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-API_KEY = (os.getenv("OPENWEATHER_API_KEY") or "").strip()
+# ---- Weather provider (selected once at startup) ----
+weather_provider = get_weather_provider()
+
 
 @app.on_event("startup")
 def on_startup():
@@ -41,21 +43,22 @@ def on_startup():
     print("=== STARTUP DONE ===")
 
 
-
 def extract_weather(data, forecast_data):
     city_name = data["name"]
     temperature = round(data["main"]["temp"], 1)
     description = data["weather"][0]["description"].title()
     icon = data["weather"][0]["icon"]
 
-    timezone_offset = data["timezone"]
+    timezone_offset = data.get("timezone", 0)
     local_time = datetime.utcfromtimestamp(data["dt"] + timezone_offset)
     time_str = local_time.strftime("%H:%M")
     date_str = local_time.strftime("%d %b %Y")
 
     forecast = []
     for item in forecast_data["list"][:6]:
-        ftime = datetime.utcfromtimestamp(item["dt"] + timezone_offset).strftime("%H:%M")
+        ftime = datetime.utcfromtimestamp(
+            item["dt"] + timezone_offset
+        ).strftime("%H:%M")
         ftemp = round(item["main"]["temp"], 1)
         forecast.append({"time": ftime, "temp": ftemp})
 
@@ -69,7 +72,8 @@ def extract_weather(data, forecast_data):
         "local_date": date_str,
     }
 
-# ---- Non-API health endpoint (for ALB health checks) ----
+
+# ---- Non-API health endpoint (for ALB / platform health checks) ----
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -81,30 +85,20 @@ api = APIRouter()
 
 @api.get("/health")
 def api_health():
-    # Optional: you can reuse the same logic or add more checks
     return {"status": "ok"}
 
 
 @api.get("/weather")
 async def get_weather(city: str):
     try:
-        params = {"q": city, "appid": API_KEY, "units": "metric"}
-        current = requests.get("https://api.openweathermap.org/data/2.5/weather", params=params)
-        forecast = requests.get("https://api.openweathermap.org/data/2.5/forecast", params=params)
-        current.raise_for_status()
-        forecast.raise_for_status()
+        current, forecast = weather_provider.get_weather_by_city(city)
 
-        result = extract_weather(current.json(), forecast.json())
+        result = extract_weather(current, forecast)
 
-        # DB save is best-effort – any DB error is handled inside save_search()
+        # DB save is best-effort
         save_search(result["city"])
 
         return result
-    except requests.HTTPError as e:
-        # Propagate upstream weather API errors
-        status = e.response.status_code if e.response is not None else 500
-        msg = e.response.text if e.response is not None else "Upstream error"
-        raise HTTPException(status_code=status, detail=msg)
     except Exception as e:
         print("get_weather error:", e)
         raise HTTPException(status_code=500, detail="Internal error")
@@ -113,22 +107,13 @@ async def get_weather(city: str):
 @api.get("/weather/coords")
 async def get_weather_by_coords(lat: float, lon: float):
     try:
-        params = {"lat": lat, "lon": lon, "appid": API_KEY, "units": "metric"}
-        current = requests.get("https://api.openweathermap.org/data/2.5/weather", params=params)
-        forecast = requests.get("https://api.openweathermap.org/data/2.5/forecast", params=params)
-        current.raise_for_status()
-        forecast.raise_for_status()
+        current, forecast = weather_provider.get_weather_by_coords(lat, lon)
 
-        result = extract_weather(current.json(), forecast.json())
+        result = extract_weather(current, forecast)
 
-        # Again, DB is best-effort
         save_search(result["city"])
 
         return result
-    except requests.HTTPError as e:
-        status = e.response.status_code if e.response is not None else 500
-        msg = e.response.text if e.response is not None else "Upstream error"
-        raise HTTPException(status_code=status, detail=msg)
     except Exception as e:
         print("get_weather_by_coords error:", e)
         raise HTTPException(status_code=500, detail="Internal error")
@@ -159,5 +144,5 @@ def history(limit: int = 10):
         db.close()
 
 
-# Mount all API routes under /api
+# ---- Mount all API routes under /api ----
 app.include_router(api)
