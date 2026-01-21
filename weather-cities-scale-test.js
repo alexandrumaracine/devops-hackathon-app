@@ -23,32 +23,32 @@ if (!BASE_URL) {
 }
 
 /**
- * ~4 minutes total
+ * ~6–7 minutes total
  *
  * Goals:
- * - Warm-up without stressing OpenWeather
- * - Light concurrency increase
- * - Observe latency stability
- * - CI-safe execution
+ * - Fast ramp to trigger scale-out immediately
+ * - Sustain high pressure to reach max replicas
+ * - Observe latency stabilization after scaling
+ * - Validate error-free behavior at capacity
  */
 export const options = {
   stages: [
-    { duration: "30s", target: 5 },   // warm-up
-    { duration: "1m", target: 15 },   // light load
-    { duration: "1m", target: 30 },   // moderate sustained load
-    { duration: "1m", target: 40 },   // peak (safe)
-    { duration: "30s", target: 0 },   // cool-down
+    { duration: "30s", target: 20 },   // fast warm-up
+    { duration: "30s", target: 50 },   // force scale-out
+    { duration: "1m",  target: 80 },   // heavy load
+    { duration: "3m",  target: 100 },  // sustained pressure (max stress)
+    { duration: "1m",  target: 0 },    // cool-down
   ],
 
   thresholds: {
-    http_req_failed: ["rate<0.01"],        // <1% errors
-    http_req_duration: ["p(95)<2500"],     // p95 < 2.5s
+    http_req_failed: ["rate<0.02"],      // <2% errors under stress
+    http_req_duration: ["p(95)<3000"],   // p95 < 3s under load
   },
 
   tags: {
-    test_type: "autoscaling-light",
+    test_type: "autoscaling-hard",
     app: "skycastnow-backend",
-    duration: "4m",
+    duration: "6m",
   },
 };
 
@@ -56,17 +56,18 @@ export default function () {
   const city = cities[Math.floor(Math.random() * cities.length)];
   const url = `${BASE_URL}/weather?city=${encodeURIComponent(city)}`;
 
-  const res = http.get(url);
+  const res = http.get(url, {
+    tags: { endpoint: "/weather" },
+  });
 
   check(res, {
     "status is 200": (r) => r.status === 200,
   });
 
   /**
-   * Increased think time:
-   * - lowers request rate
-   * - reduces OpenWeather pressure
-   * - still realistic for user behavior
+   * Small think time:
+   * - keeps RPS high
+   * - avoids unrealistically tight loops
    */
-  sleep(0.5);
+  sleep(0.2);
 }
