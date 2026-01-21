@@ -6,7 +6,7 @@ on:
       target_url:
         description: "Target base URL (backend Container App)"
         required: true
-        default: "https://skycastnow-backend.yellowmoss-69428b58.westeurope.azurecontainerapps.io"
+        default: "https://skycastnow-backend.greencoast-4672285b.westeurope.azurecontainerapps.io"
 
 jobs:
   loadtest:
