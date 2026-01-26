@@ -19,14 +19,19 @@ connect_args = {}
 
 if MYSQL_SSL_DISABLED:
     print("⚠️  MySQL SSL disabled (MYSQL_SSL_DISABLED=true)")
-    connect_args = {"ssl": {"disabled": True}}
+    connect_args["ssl_disabled"] = True
 else:
     print("🔐 MySQL SSL enabled")
-    connect_args = {
-        "ssl": {
-            "ca": "/etc/ssl/certs/ca-certificates.crt"
-        }
+    connect_args["ssl"] = {
+        "ca": "/etc/ssl/certs/ca-certificates.crt"
     }
+
+print("DB DEBUG:")
+print("MYSQL_HOST =", MYSQL_HOST)
+print("MYSQL_DB =", MYSQL_DB)
+print("MYSQL_USER =", MYSQL_USER)
+print("SSL_DISABLED =", MYSQL_SSL_DISABLED)
+print("CONNECT_ARGS =", connect_args)
 
 engine = create_engine(
     DATABASE_URL,
