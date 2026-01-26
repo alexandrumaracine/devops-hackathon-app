@@ -11,19 +11,28 @@ MYSQL_HOST = os.getenv("MYSQL_HOST", "db")
 MYSQL_DB = os.getenv("MYSQL_DATABASE", "weatherdb")
 MYSQL_USER = os.getenv("MYSQL_USER", "weatheruser")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "weatherpass")
+MYSQL_SSL_DISABLED = os.getenv("MYSQL_SSL_DISABLED", "false").lower() == "true"
 
 DATABASE_URL = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}/{MYSQL_DB}"
 
-# 🔐 Azure MySQL requires SSL
-engine = create_engine(
-    DATABASE_URL,
-    echo=False,
-    pool_pre_ping=True,
-    connect_args={
+connect_args = {}
+
+if MYSQL_SSL_DISABLED:
+    print("⚠️  MySQL SSL disabled (MYSQL_SSL_DISABLED=true)")
+    connect_args = {"ssl": {"disabled": True}}
+else:
+    print("🔐 MySQL SSL enabled")
+    connect_args = {
         "ssl": {
             "ca": "/etc/ssl/certs/ca-certificates.crt"
         }
     }
+
+engine = create_engine(
+    DATABASE_URL,
+    echo=False,
+    pool_pre_ping=True,
+    connect_args=connect_args,
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
